@@ -223,7 +223,10 @@ class ContenidoJuego(tk.Frame):
         return self.juego.cursor.fetchall()
 
     def mostrar_pregunta(self):
-        #Muestra la pregunta actual junto con sus opciones de respuesta.
+        # Reiniciar contador de intentos para la nueva pregunta
+        self.intentos_pregunta = 0
+        
+        # Limpiar contenedor
         for widget in self.contenedor.winfo_children():
             widget.destroy()
         self.frame_superior.pack()
@@ -232,16 +235,16 @@ class ContenidoJuego(tk.Frame):
         pregunta_actual = self.preguntas_nivel[self.indice_pregunta]
         self.pregunta_actual_id = pregunta_actual[0]
         
-          # Obtener opciones y respuesta correcta ORIGINAL
+        # Obtener opciones y respuesta correcta ORIGINAL
         opciones_originales = [pregunta_actual[2], pregunta_actual[3], pregunta_actual[4]]
-        respuesta_correcta_original = opciones_originales[pregunta_actual[5]-1]  # Texto correcto
+        self.respuesta_correcta_texto = opciones_originales[pregunta_actual[5]-1]  # Guardar texto correcto
 
-    # Mezclar opciones
+        # Mezclar opciones
         opciones = list(opciones_originales)
         random.shuffle(opciones)
-    
-    # Encontrar NUEVO índice de la respuesta correcta
-        self.respuesta_correcta = opciones.index(respuesta_correcta_original) + 1  
+        
+        # Encontrar NUEVO índice de la respuesta correcta
+        self.respuesta_correcta_indice = opciones.index(self.respuesta_correcta_texto) + 1  
 
         # Mostrar progreso
         self.widgets['lbl_progreso'].config(text=f"Pregunta {self.indice_pregunta+1}/5")
@@ -249,58 +252,148 @@ class ContenidoJuego(tk.Frame):
         # Mostrar pregunta
         frame_pregunta = tk.Frame(self.contenedor, bg=COLOR_FONDO)
         frame_pregunta.pack(pady=20, fill='x')
-    
+
         tk.Label(frame_pregunta, text=pregunta_actual[1], 
             font=('Arial', 16), bg=COLOR_FONDO,
             wraplength=600).pack(pady=10)
-       
+    
         # Botones de respuesta mezclados
         frame_respuestas = tk.Frame(self.contenedor, bg=COLOR_FONDO)
         frame_respuestas.pack(pady=10)
-    
+
         for idx, texto_respuesta in enumerate(opciones):
             btn = tk.Button(frame_respuestas, text=texto_respuesta,
-                      bg=COLOR_BOTON_ACTIVO, fg=COLOR_TEXTO_BOTON,
-                      font=('Arial', 14), width=30, height=2,
-                      command=partial(self.verificar_respuesta, idx+1 == self.respuesta_correcta))
-            btn.pack(pady=5, padx=20, fill='x')  # ← Usar pack() en lugar de grid()
-    
+                    bg=COLOR_BOTON_ACTIVO, fg=COLOR_TEXTO_BOTON,
+                    font=('Arial', 14), width=30, height=2,
+                    command=partial(self.verificar_respuesta, idx+1 == self.respuesta_correcta_indice))
+            btn.pack(pady=5, padx=20, fill='x')
+        
+        # Label para mensajes de ayuda/feedback
+        self.lbl_feedback = tk.Label(self.contenedor, text="", 
+                                font=('Arial', 12), bg=COLOR_FONDO, fg=COLOR_PRIMARIO)
+        self.lbl_feedback.pack(pady=10)
+        
+        # Botón de control (se configurará en verificar_respuesta)
+        self.btn_control = tk.Button(self.contenedor, text="Siguiente Pregunta",
+                                bg=COLOR_PRIMARIO, fg=COLOR_TEXTO_BOTON,
+                                command=self.siguiente_pregunta)
+        self.btn_control.pack_forget()  # Ocultar inicialmente
+
     def verificar_respuesta(self, es_correcta):
-        #Verifica la respuesta del usuario y actualiza el estado del juego.
-            # Desactivar todos los botones
+        # Desactivar todos los botones de respuesta
         for btn in self.contenedor.winfo_children()[1].winfo_children():
             btn.config(state='disabled')
         
-        # Mostrar feedback
-        color = COLOR_BOTON_ACTIVO if es_correcta else COLOR_BOTON_INCORRECTO
-        self.contenedor.winfo_children()[1].winfo_children()[0].config(bg=color)
+        # Incrementar contador de intentos
+        self.intentos_pregunta += 1
         
-        # Mostrar resultado
-        lbl_resultado = tk.Label(self.contenedor, text="¡Correcto!" if es_correcta else "Incorrecto",
-                                font=('Arial', 16), bg=COLOR_FONDO, fg=color)
-        lbl_resultado.pack(pady=10)
+        # Asegurarnos que el label de feedback existe
+        if not hasattr(self, 'lbl_feedback') or not self.lbl_feedback.winfo_exists():
+            self.lbl_feedback = tk.Label(self.contenedor, text="", 
+                                    font=('Arial', 14), bg=COLOR_FONDO)
+            self.lbl_feedback.pack(pady=10)
         
-        # Actualizar lógica
         if es_correcta:
+            # Respuesta correcta - Mostrar feedback en pantalla
+            mensajes_positivos = [
+                "¡Respuesta correcta!",
+                "¡Bien hecho!",
+                "¡Excelente!",
+                "¡Eres increíble!",
+                "¡Perfecto!",
+                "¡Lo tienes dominado!",
+                "¡Así se hace!"
+            ]
+            mensaje = random.choice(mensajes_positivos)
+            self.lbl_feedback.config(text=mensaje, fg="green")
+            
+            # Resaltar la respuesta correcta
+            frame_respuestas = self.contenedor.winfo_children()[1]
+            for i, btn in enumerate(frame_respuestas.winfo_children()):
+                if i+1 == self.respuesta_correcta_indice:
+                    btn.config(bg="#4CAF50", fg="white")  # Verde intenso
+            
             self.indice_pregunta += 1
+            self.btn_control.config(text="Siguiente Pregunta", command=self.siguiente_pregunta)
+            self.btn_control.pack(pady=20)
         else:
-            self.vidas -= 1  # ← Nueva línea
-            self.widgets['lbl_vidas'].config(text=f"Vidas: {self.vidas}")  # ← Nueva línea
-            if self.vidas <= 0:  # ← Nueva línea
-                self.mostrar_game_over()  # ← Nueva línea
+            # Respuesta incorrecta
+            self.vidas -= 1
+            self.widgets['lbl_vidas'].config(text=f"Vidas: {self.vidas}")
+            
+            if self.vidas <= 0:
+                self.mostrar_game_over()
                 return
-        
-        # Mostrar botón siguiente o finalizar
-        if self.indice_pregunta < 5:
-            btn_siguiente = tk.Button(self.contenedor, text="Siguiente Pregunta",
-                                    bg=COLOR_PRIMARIO, fg=COLOR_TEXTO_BOTON,
+                
+            if self.intentos_pregunta == 1:
+                # Primer error - Mostrar ayuda en messagebox
+                ayuda = self.preguntas_nivel[self.indice_pregunta][7]
+                messagebox.showinfo("Ayuda", ayuda)
+                
+                # Configurar botón de reintento
+                self.btn_control.config(text="Repetir Pregunta", 
+                                    command=self.repetir_pregunta)
+                self.btn_control.pack(pady=20)
+                
+                # Mostrar feedback en pantalla
+                self.lbl_feedback.config(text="Inténtalo de nuevo", fg="orange")
+            else:
+                # Segundo error - Mostrar respuesta correcta
+                messagebox.showinfo("Respuesta Correcta", 
+                                f"La respuesta correcta era:\n\n{self.respuesta_correcta_texto}")
+                
+                frame_respuestas = self.contenedor.winfo_children()[1]
+                for i, btn in enumerate(frame_respuestas.winfo_children()):
+                    # Primero restablecemos todos los botones a su color original
+                    btn.config(bg=COLOR_BOTON_ACTIVO, fg=COLOR_TEXTO_BOTON)
+                    
+                    # Luego aplicamos los colores especiales
+                    if i+1 == self.respuesta_correcta_indice:
+                        btn.config(bg="#4CAF50", fg="white")  # Verde para la correcta
+                    elif btn['state'] == 'disabled' and btn['text'] != self.respuesta_correcta_texto:
+                        # Solo colorear rojo el botón que el usuario seleccionó (que está deshabilitado)
+                        btn.config(bg="#F44336", fg="white")
+                self.indice_pregunta += 1
+                self.btn_control.config(text="Siguiente Pregunta", 
                                     command=self.siguiente_pregunta)
-            btn_siguiente.pack(pady=20)
-        else:
-            btn_finalizar = tk.Button(self.contenedor, text="Finalizar Nivel",
-                                    bg=COLOR_PRIMARIO, fg=COLOR_TEXTO_BOTON,
-                                    command=self.finalizar_nivel)
-            btn_finalizar.pack(pady=20)
+                self.btn_control.pack(pady=20)
+                self.lbl_feedback.config(text="Sigue intentándolo", fg="red")
+
+    def repetir_pregunta(self):
+        """Muestra la misma pregunta nuevamente pero sin mezclar las opciones"""
+        # Mantenemos el mismo índice de pregunta
+        # Solo necesitamos volver a mostrar la interfaz
+        for widget in self.contenedor.winfo_children():
+            widget.destroy()
+        
+        pregunta_actual = self.preguntas_nivel[self.indice_pregunta]
+        
+        # Mostrar pregunta (sin mezclar opciones esta vez)
+        frame_pregunta = tk.Frame(self.contenedor, bg=COLOR_FONDO)
+        frame_pregunta.pack(pady=20, fill='x')
+
+        tk.Label(frame_pregunta, text=pregunta_actual[1], 
+                font=('Arial', 16), bg=COLOR_FONDO,
+                wraplength=600).pack(pady=10)
+        
+        # Mostrar opciones en ORDEN ORIGINAL
+        opciones = [pregunta_actual[2], pregunta_actual[3], pregunta_actual[4]]
+        frame_respuestas = tk.Frame(self.contenedor, bg=COLOR_FONDO)
+        frame_respuestas.pack(pady=10)
+
+        for idx, texto_respuesta in enumerate(opciones):
+            btn = tk.Button(frame_respuestas, text=texto_respuesta,
+                        bg=COLOR_BOTON_ACTIVO, fg=COLOR_TEXTO_BOTON,
+                        font=('Arial', 14), width=30, height=2,
+                        command=partial(self.verificar_respuesta, 
+                                        idx+1 == pregunta_actual[5]))  # Usar índice original
+            btn.pack(pady=5, padx=20, fill='x')
+        
+        # Configurar botón de control
+        self.btn_control = tk.Button(self.contenedor, text="Siguiente Pregunta",
+                                bg=COLOR_PRIMARIO, fg=COLOR_TEXTO_BOTON,
+                                command=self.siguiente_pregunta)
+        self.btn_control.pack_forget()
     def mostrar_game_over(self):
         #Muestra la pantalla de Game Over.
         # Limpiar contenedor
