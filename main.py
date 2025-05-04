@@ -380,26 +380,65 @@ class ContenidoJuego(tk.Frame):
                                 command=self.siguiente_pregunta)
         self.btn_control.pack_forget()
     def mostrar_game_over(self):
-        #Muestra la pantalla de Game Over.
         # Limpiar contenedor
         for widget in self.contenedor.winfo_children():
             widget.destroy()
-            
+        
         # Pantalla de Game Over
         tk.Label(self.contenedor, text="¡Has perdido!", 
-                font=('Arial', 24), bg=COLOR_FONDO).pack(pady=20)
+                font=('Arial', 24), bg=COLOR_FONDO).pack(pady=10)
         tk.Label(self.contenedor, text="Te has equivocado 3 veces",
-                font=('Arial', 16), bg=COLOR_FONDO).pack(pady=10)
-                
+                font=('Arial', 16), bg=COLOR_FONDO).pack(pady=5)
+        
+        # Frame para el resumen
+        frame_resumen = tk.Frame(self.contenedor, bg=COLOR_FONDO)
+        frame_resumen.pack(fill='both', expand=True, pady=10)
+        
+        # Crear un canvas con scrollbar para el resumen
+        canvas = tk.Canvas(frame_resumen, bg=COLOR_FONDO)
+        scrollbar = ttk.Scrollbar(frame_resumen, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg=COLOR_FONDO)
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(
+                scrollregion=canvas.bbox("all")
+            )
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Mostrar resumen de cada pregunta
+        for i, pregunta in enumerate(self.preguntas_nivel):
+            frame_pregunta = tk.Frame(scrollable_frame, bg=COLOR_FONDO, bd=1, relief='solid', padx=10, pady=10)
+            frame_pregunta.pack(fill='x', pady=5)
+            
+            # Mostrar pregunta
+            tk.Label(frame_pregunta, text=f"Pregunta {i+1}: {pregunta[1]}", 
+                    font=('Arial', 12), bg=COLOR_FONDO, wraplength=600, justify='left').pack(anchor='w')
+            
+            # Mostrar respuesta correcta
+            tk.Label(frame_pregunta, text=f"Respuesta correcta: {pregunta[pregunta[5]+1]}", 
+                    font=('Arial', 12), bg=COLOR_FONDO, fg='green', wraplength=600, justify='left').pack(anchor='w')
+            
+            # Separador
+            ttk.Separator(frame_pregunta, orient='horizontal').pack(fill='x', pady=5)
+        
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
         # Botones
         frame_botones = tk.Frame(self.contenedor, bg=COLOR_FONDO)
         frame_botones.pack(pady=20)
+        
         tk.Button(frame_botones, text="Reiniciar Nivel", 
-                 bg=COLOR_PRIMARIO, fg=COLOR_TEXTO_BOTON,
-                 command=self.reiniciar_nivel).pack(side='left', padx=10)
+                bg=COLOR_PRIMARIO, fg=COLOR_TEXTO_BOTON,
+                command=self.reiniciar_nivel).pack(side='left', padx=10)
         tk.Button(frame_botones, text="Volver al Menú", 
-                 bg=COLOR_PRIMARIO, fg=COLOR_TEXTO_BOTON,
-                 command=self.volver_menu).pack(side='right', padx=10)
+                bg=COLOR_PRIMARIO, fg=COLOR_TEXTO_BOTON,
+                command=self.volver_menu).pack(side='right', padx=10)
+        
         self.widgets['lbl_vidas'].config(text=f"Vidas: {self.vidas}")
     
     def reiniciar_nivel(self):
@@ -440,16 +479,54 @@ class ContenidoJuego(tk.Frame):
 
     def mostrar_pantalla_completado(self):
         # Ocultar elementos de juego
-        self.frame_superior.pack_forget()  # Ocultar barra superior
-        self.contenedor.destroy()  # Eliminar contenedor antiguo
+        self.frame_superior.pack_forget()
+        self.contenedor.destroy()
         
-        # Crear nuevo contenedor para la pantalla de finalización
+        # Crear nuevo contenedor
         self.contenedor = tk.Frame(self, bg=COLOR_FONDO)
         self.contenedor.pack(padx=20, pady=20, fill='both', expand=True)
         
         # Mensaje de finalización
         tk.Label(self.contenedor, text=f"¡Nivel {self.nivel_actual_jugando} Completado!",
-                font=('Arial', 24), bg=COLOR_FONDO).pack(pady=40)
+                font=('Arial', 24), bg=COLOR_FONDO).pack(pady=10)
+        
+        # Frame para el resumen
+        frame_resumen = tk.Frame(self.contenedor, bg=COLOR_FONDO)
+        frame_resumen.pack(fill='both', expand=True, pady=10)
+        
+        # Crear un canvas con scrollbar para el resumen
+        canvas = tk.Canvas(frame_resumen, bg=COLOR_FONDO)
+        scrollbar = ttk.Scrollbar(frame_resumen, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg=COLOR_FONDO)
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(
+                scrollregion=canvas.bbox("all")
+            )
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Mostrar resumen de cada pregunta
+        for i, pregunta in enumerate(self.preguntas_nivel):
+            frame_pregunta = tk.Frame(scrollable_frame, bg=COLOR_FONDO, bd=1, relief='solid', padx=10, pady=10)
+            frame_pregunta.pack(fill='x', pady=5)
+            
+            # Mostrar pregunta
+            tk.Label(frame_pregunta, text=f"Pregunta {i+1}: {pregunta[1]}", 
+                    font=('Arial', 12), bg=COLOR_FONDO, wraplength=600, justify='left').pack(anchor='w')
+            
+            # Mostrar respuesta correcta
+            tk.Label(frame_pregunta, text=f"Respuesta correcta: {pregunta[pregunta[5]+1]}", 
+                    font=('Arial', 12), bg=COLOR_FONDO, fg='green', wraplength=600, justify='left').pack(anchor='w')
+            
+            # Separador
+            ttk.Separator(frame_pregunta, orient='horizontal').pack(fill='x', pady=5)
+        
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
         
         # Botones de acción
         frame_botones = tk.Frame(self.contenedor, bg=COLOR_FONDO)
@@ -457,17 +534,16 @@ class ContenidoJuego(tk.Frame):
         
         if self.nivel_actual_jugando < 10:
             tk.Button(frame_botones, text="Siguiente Nivel →",
-                     bg=COLOR_PRIMARIO, fg=COLOR_TEXTO_BOTON,
-                     font=('Arial', 14),
-                     command=lambda: self.iniciar_nivel(self.nivel_actual_jugando + 1)
-                     ).pack(side='left', padx=15)
-                     
+                    bg=COLOR_PRIMARIO, fg=COLOR_TEXTO_BOTON,
+                    font=('Arial', 14),
+                    command=lambda: self.iniciar_nivel(self.nivel_actual_jugando + 1)
+                    ).pack(side='left', padx=15)
+                    
         tk.Button(frame_botones, text="← Volver al Menú",
-                 bg=COLOR_PRIMARIO, fg=COLOR_TEXTO_BOTON,
-                 font=('Arial', 14),
-                 command=self.volver_menu
-                 ).pack(side='right', padx=15)
-
+                bg=COLOR_PRIMARIO, fg=COLOR_TEXTO_BOTON,
+                font=('Arial', 14),
+                command=self.volver_menu
+                ).pack(side='right', padx=15)
     def mostrar_ayuda(self):
         if self.preguntas_nivel:
             pregunta_actual = self.preguntas_nivel[self.indice_pregunta]
