@@ -1,4 +1,4 @@
-# Importar librerías, funciones...
+#AMAGUAÑA NAOMY, ANDRADE ERIKA Y REALPE MATEO 
 import tkinter as tk
 from tkinter import ttk, messagebox
 from auth import Auth
@@ -175,29 +175,25 @@ class ContenidoJuego(tk.Frame):
             btn.grid(row=row, column=col, padx=15, pady=15, sticky='nsew')
 
     def iniciar_nivel(self, nivel):
-        # Detener cualquier cronómetro previo
-        self.detener_cronometro()  # Asegúrate de que no haya cronómetros corriendo
+            self.detener_cronometro()
+            self.tiempo_transcurrido = 0
+            self.widgets['lbl_tiempo'].config(text="Tiempo: 00:00")
+            self.vidas = 3
+            self.widgets['lbl_vidas'].config(text=f"Vidas: {self.vidas}")
 
-        # Reiniciar el tiempo y las vidas
-        self.tiempo_transcurrido = 0  # Reiniciar el contador de tiempo
-        self.widgets['lbl_tiempo'].config(text="Tiempo: 00:00")  # Resetear visualización
-        self.vidas = 3
-        self.widgets['lbl_vidas'].config(text=f"Vidas: {self.vidas}")
+            self.nivel_actual_jugando = nivel
+            self.preguntas_nivel = self.obtener_preguntas_nivel(nivel)
+            
+            # Limitar a 5 preguntas máximo por nivel
+            self.preguntas_nivel = self.preguntas_nivel[:5]
+            
+            if len(self.preguntas_nivel) < 5:
+                messagebox.showwarning("Atención", "Este nivel no tiene suficientes preguntas")
+                return
 
-        # Configuración del nivel seleccionado
-        self.nivel_actual_jugando = nivel
-        self.preguntas_nivel = self.obtener_preguntas_nivel(nivel)  # Carga preguntas del nivel
-        if len(self.preguntas_nivel) < 5:
-            messagebox.showwarning("Atención", "Este nivel no tiene suficientes preguntas")
-            return
-
-        self.indice_pregunta = 0  # Se inicia desde la primera pregunta
-
-        # Iniciar el cronómetro
-        self.iniciar_cronometro()  # Llamada para iniciar el cronómetro
-
-        # Mostrar la primera pregunta
-        self.mostrar_pregunta()
+            self.indice_pregunta = 0
+            self.iniciar_cronometro()
+            self.mostrar_pregunta()
 
     def iniciar_cronometro(self):
         """Inicia el contador de tiempo."""
@@ -224,6 +220,9 @@ class ContenidoJuego(tk.Frame):
 
     def mostrar_pregunta(self):
         # Reiniciar contador de intentos para la nueva pregunta
+        if self.indice_pregunta >= len(self.preguntas_nivel):
+            self.finalizar_nivel()
+            return
         self.intentos_pregunta = 0
         
         # Limpiar contenedor
@@ -280,21 +279,19 @@ class ContenidoJuego(tk.Frame):
         self.btn_control.pack_forget()  # Ocultar inicialmente
 
     def verificar_respuesta(self, es_correcta):
-        # Desactivar todos los botones de respuesta
+            ## Desactivar todos los botones de respuesta
         for btn in self.contenedor.winfo_children()[1].winfo_children():
             btn.config(state='disabled')
         
         # Incrementar contador de intentos
         self.intentos_pregunta += 1
         
-        # Asegurarnos que el label de feedback existe
         if not hasattr(self, 'lbl_feedback') or not self.lbl_feedback.winfo_exists():
             self.lbl_feedback = tk.Label(self.contenedor, text="", 
                                     font=('Arial', 14), bg=COLOR_FONDO)
             self.lbl_feedback.pack(pady=10)
         
         if es_correcta:
-            # Respuesta correcta - Mostrar feedback en pantalla
             mensajes_positivos = [
                 "¡Respuesta correcta!",
                 "¡Bien hecho!",
@@ -307,38 +304,21 @@ class ContenidoJuego(tk.Frame):
             mensaje = random.choice(mensajes_positivos)
             self.lbl_feedback.config(text=mensaje, fg="green")
             
-            # Resaltar la respuesta correcta
             frame_respuestas = self.contenedor.winfo_children()[1]
             for i, btn in enumerate(frame_respuestas.winfo_children()):
                 if i+1 == self.respuesta_correcta_indice:
-                    btn.config(bg="#4CAF50", fg="white")  # Verde intenso
+                    btn.config(bg="#4CAF50", fg="white")
             
-            self.indice_pregunta += 1
-            self.btn_control.config(text="Siguiente Pregunta", command=self.siguiente_pregunta)
+            # Verificar si es la última pregunta
+            if self.indice_pregunta + 1 >= len(self.preguntas_nivel):
+                self.btn_control.config(text="Finalizar Nivel", command=self.finalizar_nivel)
+            else:
+                self.indice_pregunta += 1
+                self.btn_control.config(text="Siguiente Pregunta", command=self.siguiente_pregunta)
+            
             self.btn_control.pack(pady=20)
         else:
-            # Respuesta incorrecta
-            self.vidas -= 1
-            self.widgets['lbl_vidas'].config(text=f"Vidas: {self.vidas}")
-            
-            if self.vidas <= 0:
-                self.mostrar_game_over()
-                return
-                
-            if self.intentos_pregunta == 1:
-                # Primer error - Mostrar ayuda en messagebox
-                ayuda = self.preguntas_nivel[self.indice_pregunta][7]
-                messagebox.showinfo("Ayuda", ayuda)
-                
-                # Configurar botón de reintento
-                self.btn_control.config(text="Repetir Pregunta", 
-                                    command=self.repetir_pregunta)
-                self.btn_control.pack(pady=20)
-                
-                # Mostrar feedback en pantalla
-                self.lbl_feedback.config(text="Inténtalo de nuevo", fg="orange")
-            else:
-                # Segundo error - Mostrar respuesta correcta
+                    # Segundo error - Mostrar respuesta correcta
                 messagebox.showinfo("Respuesta Correcta", 
                                 f"La respuesta correcta era:\n\n{self.respuesta_correcta_texto}")
                 
@@ -436,14 +416,21 @@ class ContenidoJuego(tk.Frame):
         self.crear_niveles()
 
     def siguiente_pregunta(self):
-        self.mostrar_pregunta()
+        """Verifica si hay más preguntas o si el nivel está completo."""
+        if self.indice_pregunta < len(self.preguntas_nivel):
+            self.mostrar_pregunta()
+        else:
+            self.finalizar_nivel()
+
 
     def finalizar_nivel(self):
-        # Verificar si desbloquear siguiente nivel
+        self.detener_cronometro()
+             # Verificar si desbloquear siguiente nivel
         if self.nivel_actual_jugando == self.nivel_actual and self.nivel_actual < 10:
             self.auth.actualizar_nivel(self.usuario, self.nivel_actual + 1)
             self.nivel_actual += 1
             self.app.sidebar.actualizar()
+        
         self.mostrar_pantalla_completado()
 
     def mostrar_pantalla_completado(self):
@@ -643,9 +630,6 @@ class App:
         if self.cronometro_id:
             self.after_cancel(self.cronometro_id)  # Cancela la actualización programada
             self.cronometro_id = None
-
 if __name__ == "__main__":
     app = App()
     app.root.mainloop()
-
-
