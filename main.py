@@ -319,6 +319,11 @@ class ContenidoJuego(tk.Frame):
             self.btn_control.pack(pady=20)
         else:
                     # Segundo error - Mostrar respuesta correcta
+                self.vidas -= 1  # Restar una vida
+                self.widgets['lbl_vidas'].config(text=f"Vidas: {self.vidas}")
+                if self.vidas <= 0:
+                    self.mostrar_game_over()
+                    return
                 messagebox.showinfo("Respuesta Correcta", 
                                 f"La respuesta correcta era:\n\n{self.respuesta_correcta_texto}")
                 
