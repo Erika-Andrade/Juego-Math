@@ -173,28 +173,49 @@ class ContenidoJuego(tk.Frame):
             row = (nivel - 1) // 5
             col = (nivel - 1) % 5
             btn.grid(row=row, column=col, padx=15, pady=15, sticky='nsew')
+            if self.nivel_actual >= 10:  # Solo disponible después de completar nivel 10
+                btn_evaluacion = tk.Button(
+                self.contenedor,
+                text="🏆 Evaluación Final",
+                bg="#FFD700",  # Dorado especial
+                fg=COLOR_TEXTO_BOTON,
+                font=('Arial', 16),
+                width=15,
+                height=2,
+                command=lambda: self.iniciar_nivel(11)
+            )
+            btn_evaluacion.grid(row=2, column=2, padx=15, pady=15, sticky='nsew')
 
     def iniciar_nivel(self, nivel):
+            
             self.detener_cronometro()
             self.tiempo_transcurrido = 0
             self.widgets['lbl_tiempo'].config(text="Tiempo: 00:00")
-            self.vidas = 3
+            
+            # Configurar vidas según el nivel
+            self.vidas = 5 if nivel == 11 else 3  # Nivel 11 es la evaluación final
             self.widgets['lbl_vidas'].config(text=f"Vidas: {self.vidas}")
 
             self.nivel_actual_jugando = nivel
-            self.preguntas_nivel = self.obtener_preguntas_nivel(nivel)
             
-            # Limitar a 5 preguntas máximo por nivel
-            self.preguntas_nivel = self.preguntas_nivel[:5]
+            # Obtener preguntas especiales para evaluación final
+            if nivel == 11:
+                self.preguntas_nivel = self.obtener_preguntas_evaluacion()
+            else:
+                self.preguntas_nivel = self.obtener_preguntas_nivel(nivel)[:5]  # 5 preguntas normales
             
-            if len(self.preguntas_nivel) < 5:
-                messagebox.showwarning("Atención", "Este nivel no tiene suficientes preguntas")
+            if len(self.preguntas_nivel) < (15 if nivel == 11 else 5):
+                messagebox.showwarning("Atención", "No hay suficientes preguntas para este nivel")
                 return
 
             self.indice_pregunta = 0
             self.iniciar_cronometro()
             self.mostrar_pregunta()
 
+    def obtener_preguntas_evaluacion(self):
+        """Obtiene preguntas de todos los niveles para la evaluación final"""
+        self.juego.cursor.execute("SELECT * FROM preguntas ORDER BY RANDOM() LIMIT 15")
+        return self.juego.cursor.fetchall()
     def iniciar_cronometro(self):
         """Inicia el contador de tiempo."""
         self.tiempo_inicio = time.time()  # Guarda el momento de inicio
@@ -246,7 +267,10 @@ class ContenidoJuego(tk.Frame):
         self.respuesta_correcta_indice = opciones.index(self.respuesta_correcta_texto) + 1  
 
         # Mostrar progreso
-        self.widgets['lbl_progreso'].config(text=f"Pregunta {self.indice_pregunta+1}/5")
+        if self.nivel_actual_jugando == 11:  # Evaluación final
+            self.widgets['lbl_progreso'].config(text=f"Pregunta {self.indice_pregunta+1}/15")
+        else:
+            self.widgets['lbl_progreso'].config(text=f"Pregunta {self.indice_pregunta+1}/5")
         
         # Mostrar pregunta
         frame_pregunta = tk.Frame(self.contenedor, bg=COLOR_FONDO)
@@ -387,8 +411,6 @@ class ContenidoJuego(tk.Frame):
         # Pantalla de Game Over
         tk.Label(self.contenedor, text="¡Has perdido!", 
                 font=('Arial', 24), bg=COLOR_FONDO).pack(pady=10)
-        tk.Label(self.contenedor, text="Te has equivocado 3 veces",
-                font=('Arial', 16), bg=COLOR_FONDO).pack(pady=5)
         
         # Frame para el resumen
         frame_resumen = tk.Frame(self.contenedor, bg=COLOR_FONDO)
@@ -468,82 +490,87 @@ class ContenidoJuego(tk.Frame):
 
 
     def finalizar_nivel(self):
-        self.detener_cronometro()
-             # Verificar si desbloquear siguiente nivel
-        if self.nivel_actual_jugando == self.nivel_actual and self.nivel_actual < 10:
-            self.auth.actualizar_nivel(self.usuario, self.nivel_actual + 1)
-            self.nivel_actual += 1
-            self.app.sidebar.actualizar()
-        
-        self.mostrar_pantalla_completado()
+            self.detener_cronometro()
+                # Verificar si desbloquear siguiente nivel
+            if self.nivel_actual_jugando == self.nivel_actual and self.nivel_actual < 10:
+                self.auth.actualizar_nivel(self.usuario, self.nivel_actual + 1)
+                self.nivel_actual += 1
+                self.app.sidebar.actualizar()
+            
+            self.mostrar_pantalla_completado()
 
     def mostrar_pantalla_completado(self):
-        # Ocultar elementos de juego
+        self.detener_cronometro()
         self.frame_superior.pack_forget()
         self.contenedor.destroy()
         
-        # Crear nuevo contenedor
         self.contenedor = tk.Frame(self, bg=COLOR_FONDO)
         self.contenedor.pack(padx=20, pady=20, fill='both', expand=True)
         
-        # Mensaje de finalización
-        tk.Label(self.contenedor, text=f"¡Nivel {self.nivel_actual_jugando} Completado!",
-                font=('Arial', 24), bg=COLOR_FONDO).pack(pady=10)
-        
-        # Frame para el resumen
-        frame_resumen = tk.Frame(self.contenedor, bg=COLOR_FONDO)
-        frame_resumen.pack(fill='both', expand=True, pady=10)
-        
-        # Crear un canvas con scrollbar para el resumen
-        canvas = tk.Canvas(frame_resumen, bg=COLOR_FONDO)
-        scrollbar = ttk.Scrollbar(frame_resumen, orient="vertical", command=canvas.yview)
-        scrollable_frame = tk.Frame(canvas, bg=COLOR_FONDO)
-        
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(
-                scrollregion=canvas.bbox("all")
-            )
-        )
-        
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-        
-        # Mostrar resumen de cada pregunta
-        for i, pregunta in enumerate(self.preguntas_nivel):
-            frame_pregunta = tk.Frame(scrollable_frame, bg=COLOR_FONDO, bd=1, relief='solid', padx=10, pady=10)
-            frame_pregunta.pack(fill='x', pady=5)
+        # Comportamiento diferente para evaluación final
+        if self.nivel_actual_jugando == 11:
+            self.mostrar_resultados_evaluacion()
+        else:
+            # Pantalla normal de nivel completado
+            tk.Label(self.contenedor, 
+                    text=f"¡Nivel {self.nivel_actual_jugando} Completado!",
+                    font=('Arial', 24), bg=COLOR_FONDO).pack(pady=40)
             
-            # Mostrar pregunta
-            tk.Label(frame_pregunta, text=f"Pregunta {i+1}: {pregunta[1]}", 
-                    font=('Arial', 12), bg=COLOR_FONDO, wraplength=600, justify='left').pack(anchor='w')
+            frame_botones = tk.Frame(self.contenedor, bg=COLOR_FONDO)
+            frame_botones.pack(pady=20)
             
-            # Mostrar respuesta correcta
-            tk.Label(frame_pregunta, text=f"Respuesta correcta: {pregunta[pregunta[5]+1]}", 
-                    font=('Arial', 12), bg=COLOR_FONDO, fg='green', wraplength=600, justify='left').pack(anchor='w')
+            if self.nivel_actual_jugando < 10:
+                tk.Button(frame_botones, text="Siguiente Nivel →",
+                        command=lambda: self.iniciar_nivel(self.nivel_actual_jugando + 1)).pack(side='left', padx=15)
             
-            # Separador
-            ttk.Separator(frame_pregunta, orient='horizontal').pack(fill='x', pady=5)
+            tk.Button(frame_botones, text="← Volver al Menú",
+                    command=self.volver_menu).pack(side='right', padx=15)
+
+    def mostrar_resultados_evaluacion(self):
+        """Muestra los resultados de la evaluación final"""
+        # Calcular puntaje (podrías usar un sistema más complejo)
+        preguntas_totales = len(self.preguntas_nivel)
+        preguntas_correctas = preguntas_totales - (3 - self.vidas)  # Ejemplo simple
         
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
+        # Frame principal
+        frame_resultados = tk.Frame(self.contenedor, bg=COLOR_FONDO)
+        frame_resultados.pack(fill='both', expand=True, pady=20)
         
-        # Botones de acción
-        frame_botones = tk.Frame(self.contenedor, bg=COLOR_FONDO)
-        frame_botones.pack(pady=20)
+        # Mensaje de felicitación
+        tk.Label(frame_resultados, text="¡EVALUACIÓN FINAL COMPLETADA!", 
+                font=('Arial', 20, 'bold'), bg=COLOR_FONDO, fg=COLOR_PRIMARIO).pack(pady=10)
         
-        if self.nivel_actual_jugando < 10:
-            tk.Button(frame_botones, text="Siguiente Nivel →",
-                    bg=COLOR_PRIMARIO, fg=COLOR_TEXTO_BOTON,
-                    font=('Arial', 14),
-                    command=lambda: self.iniciar_nivel(self.nivel_actual_jugando + 1)
-                    ).pack(side='left', padx=15)
-                    
-        tk.Button(frame_botones, text="← Volver al Menú",
+        # Mostrar medalla según desempeño
+        if preguntas_correctas >= preguntas_totales * 0.9:  # 90% o más
+            medalla = "🥇"  # Medalla de oro
+            mensaje = "¡Excelente! Dominas todos los temas"
+        elif preguntas_correctas >= preguntas_totales * 0.7:  # 70% o más
+            medalla = "🥈"  # Medalla de plata
+            mensaje = "¡Muy bien! Buen desempeño"
+        else:
+            medalla = "🥉"  # Medalla de bronce
+            mensaje = "¡Bien hecho! Sigue practicando"
+        
+        tk.Label(frame_resultados, text=medalla, 
+                font=('Arial', 50), bg=COLOR_FONDO).pack(pady=10)
+        
+        # Mostrar estadísticas
+        tk.Label(frame_resultados, text=mensaje,
+                font=('Arial', 16), bg=COLOR_FONDO).pack(pady=5)
+        
+        tk.Label(frame_resultados, 
+                text=f"Preguntas correctas: {preguntas_correctas}/{preguntas_totales}",
+                font=('Arial', 14), bg=COLOR_FONDO).pack(pady=5)
+        
+        tk.Label(frame_resultados, 
+                text=f"Tiempo total: {self.tiempo_transcurrido//60}:{self.tiempo_transcurrido%60:02d}",
+                font=('Arial', 14), bg=COLOR_FONDO).pack(pady=5)
+        
+        # Botón para volver al menú
+        tk.Button(frame_resultados, text="Volver al Menú Principal",
                 bg=COLOR_PRIMARIO, fg=COLOR_TEXTO_BOTON,
                 font=('Arial', 14),
-                command=self.volver_menu
-                ).pack(side='right', padx=15)
+                command=self.volver_menu).pack(pady=20)
     def mostrar_ayuda(self):
         if self.preguntas_nivel:
             pregunta_actual = self.preguntas_nivel[self.indice_pregunta]
